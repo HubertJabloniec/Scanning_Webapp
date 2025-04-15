@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Security Scanner Web Tool</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-4">
+    <h2>Security Scanner Web Tool</h2>
+    <form method="POST">
+        <div class="form-group">
+            <label for="target">Target:</label>
+            <input type="text" class="form-control" id="target" name="target" required value="{{ request.form.target or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>Tools:</label><br>
+            <input type="checkbox" name="tools" value="nmap" id="nmapCheckbox"
+                   {% if 'nmap' in request.form.getlist('tools') %}checked{% endif %}> Nmap<br>
+            <input type="checkbox" name="tools" value="whois"
+                   {% if 'whois' in request.form.getlist('tools') %}checked{% endif %}> Whois<br>
+            <input type="checkbox" name="tools" value="dig"
+                   {% if 'dig' in request.form.getlist('tools') %}checked{% endif %}> DNS Lookup (Dig)<br>
+            <input type="checkbox" name="tools" value="traceroute"
+                   {% if 'traceroute' in request.form.getlist('tools') %}checked{% endif %}> Traceroute<br>
+            <input type="checkbox" name="tools" value="geolocation"
+                   {% if 'geolocation' in request.form.getlist('tools') %}checked{% endif %}> Geolocation<br>
+            <input type="checkbox" name="tools" value="vulnscan"
+                   {% if 'vulnscan' in request.form.getlist('tools') %}checked{% endif %}> Vulnerability Scan (Nmap Vulners) <br>
+        </div>
+
+        <div id="nmapScanType" style="display: {% if 'nmap' in request.form.getlist('tools') %}block{% else %}none{% endif %};">
+            <div class="form-group">
+                <label>Scan Type:</label><br>
+                <input type="radio" id="fastScan" name="nmap_scan_type" value="fast" {% if request.form.nmap_scan_type == 'fast' %}checked{% endif %}>
+                <label for="fastScan">Fast Scan</label>
+                <input type="radio" id="osScan" name="nmap_scan_type" value="os" {% if request.form.nmap_scan_type == 'os' %}checked{% endif %}>
+                <label for="osScan">OS Detection</label>
+                <input type="radio" id="fullScan" name="nmap_scan_type" value="full" {% if request.form.nmap_scan_type == 'full' %}checked{% endif %}>
+                <label for="fullScan">Full Scan</label>
+                <input type="radio" id="customScan" name="nmap_scan_type" value="custom" {% if request.form.nmap_scan_type == 'custom' %}checked{% endif %}>
+                <label for="customScan">Custom Scan</label>
+            </div>
+
+            <div class="form-group" id="customScanOptions" style="display: {% if request.form.nmap_scan_type == 'custom' %}block{% else %}none{% endif %};">
+                <label>Custom Scan Arguments:</label><br>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="custom_scan_args" value="-sS" id="sSCheck"
+                           {% if '-sS' in request.form.getlist('custom_scan_args') %}checked{% endif %}>
+                    <label class="form-check-label" for="sSCheck">TCP Connect Scan (-sS)</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="custom_scan_args" value="-sV" id="sVCheck"
+                           {% if '-sV' in request.form.getlist('custom_scan_args') %}checked{% endif %}>
+                    <label class="form-check-label" for="sVCheck">Service Version Scan (-sV)</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="custom_scan_args" value="-O" id="OCheck"
+                           {% if '-O' in request.form.getlist('custom_scan_args') %}checked{% endif %}>
+                    <label class="form-check-label" for="OCheck">OS Detection (-O)</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" name="custom_scan_args" value="-sU" id="sUCheck"
+                           {% if '-sU' in request.form.getlist('custom_scan_args') %}checked{% endif %}>
+                    <label class="form-check-label" for="sUCheck">UDP Scan (-sU)</label>
+                </div>
+                <div class="form-group mt-2">
+                    <label for="port_range">Port Range:</label>
+                    <input type="text" class="form-control" id="port_range" name="port_range"
+                           value="{{ request.form.port_range or '' }}" placeholder="e.g., 22-80,443">
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Scan</button>
+    </form>
+
+    <div class="mt-4">
+        <h3>Scan Results</h3>
+        {% if scan_result %}
+            <h4>Nmap Scan Results:</h4>
+            <pre>{{ scan_result }}</pre>
+        {% endif %}
+        {% if vuln_result %}
+            <h4>Vulnerability Scan Results:</h4>
+            <pre>{{ vuln_result }}</pre>
+        {% endif %}
+        {% if whois_result %}
+            <h4>Whois Information:</h4>
+            <pre>{{ whois_result }}</pre>
+        {% endif %}
+        {% if dig_result %}
+            <h4>DNS Lookup Results:</h4>
+            <pre>{{ dig_result }}</pre>
+        {% endif %}
+        {% if traceroute_result %}
+            <h4>Traceroute Results:</h4>
+            <pre>{{ traceroute_result }}</pre>
+        {% endif %}
+        {% if geolocation_result %}
+            <h4>Geolocation Results:</h4>
+            <pre>{{ geolocation_result | tojson(indent=2) }}</pre>
+        {% endif %}
+        {% if error_message %}
+            <h4>Error:</h4>
+            <pre>{{ error_message }}</pre>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    document.getElementById('nmapCheckbox').addEventListener('change', function () {
+        document.getElementById('nmapScanType').style.display = this.checked ? 'block' : 'none';
+    });
+
+    document.querySelectorAll('input[name="nmap_scan_type"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            document.getElementById('customScanOptions').style.display =
+                document.getElementById('customScan').checked ? 'block' : 'none';
+        });
+    });
+</script>
+</body>
+</html>
